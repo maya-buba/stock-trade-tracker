@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "./fees";
-import type { Dividend, PriceMap, Settings, Trade } from "./types";
+import type { Adjustment, Dividend, PriceMap, Settings, Trade } from "./types";
 
 /**
  * Persistence lives behind these functions so it can be swapped for a real
@@ -10,6 +10,7 @@ const TRADES_KEY = "stt.trades.v1";
 const PRICES_KEY = "stt.prices.v1";
 const SETTINGS_KEY = "stt.settings.v1";
 const DIVIDENDS_KEY = "stt.dividends.v1";
+const ADJUSTMENTS_KEY = "stt.adjustments.v1";
 
 function read<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -50,12 +51,22 @@ export function savePrices(prices: PriceMap): void {
 
 export function loadDividends(): Dividend[] {
   return read<unknown[]>(DIVIDENDS_KEY, [])
-    .map(parseDividend)
+    .map(parseDatedAmount)
     .filter((dividend): dividend is Dividend => dividend !== null);
 }
 
 export function saveDividends(dividends: Dividend[]): void {
   write(DIVIDENDS_KEY, dividends);
+}
+
+export function loadAdjustments(): Adjustment[] {
+  return read<unknown[]>(ADJUSTMENTS_KEY, [])
+    .map(parseDatedAmount)
+    .filter((entry): entry is Adjustment => entry !== null);
+}
+
+export function saveAdjustments(adjustments: Adjustment[]): void {
+  write(ADJUSTMENTS_KEY, adjustments);
 }
 
 export function loadSettings(): Settings {
@@ -105,7 +116,8 @@ function migrateTrade(value: unknown): Trade | null {
   };
 }
 
-function parseDividend(value: unknown): Dividend | null {
+/** Shared shape of dividends and manual adjustments: a dated amount per symbol. */
+function parseDatedAmount<T extends Dividend | Adjustment>(value: unknown): T | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
 
@@ -125,7 +137,7 @@ function parseDividend(value: unknown): Dividend | null {
     date: row.date,
     amount: row.amount,
     notes: typeof row.notes === "string" ? row.notes : undefined,
-  };
+  } as T;
 }
 
 function numberOr(value: unknown, fallback: number): number {

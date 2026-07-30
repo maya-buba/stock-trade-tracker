@@ -1,4 +1,4 @@
-# Trade Tracker
+# Bonaparte Wealth
 
 A personal stock trade tracker in Thai baht: log buys and sells, and see your
 open positions, cost basis, dividends, and realised/unrealised P&L. Everything
@@ -42,8 +42,18 @@ and sold at 22.30: commission 16.642 + 17.5055 = **34.15**, tax **2.39**, profit
 
 ### Cost basis and P&L
 
-- **Average-cost method** — buys raise the average cost (fees included); sells
-  realise P&L against that average and leave it unchanged.
+- **FIFO** — each buy opens a lot with its own cost per share (fees included),
+  and each sell consumes the oldest lots first. Realised P&L is the sell's net
+  proceeds minus the cost of exactly the lots it consumed. `Avg cost` in the
+  Positions table is the weighted average of whatever lots remain.
+- **Live simulation** — filling in a sell shows what it would realise before you
+  log it, matched against the actual FIFO lots. The Positions table's
+  **If sold now** column does the same for closing a whole position at the last
+  price, including the commission and tax the exit itself would cost (which is
+  why it reads slightly below Unrealised).
+- **Manual gain/loss entries** — for a closed trade you have no record of, enter
+  the symbol, date, and amount. It counts towards realised P&L for that year and
+  appears in the history as a `manual` row.
 - **Dividends** are logged separately, count as income, and never touch the cost
   basis. Enter the cash you actually received, net of withholding tax.
 - **Carried-forward P&L** is a manual figure for profit or loss from before you

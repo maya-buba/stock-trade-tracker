@@ -2,16 +2,18 @@
 
 import { DEFAULT_SETTINGS } from "./fees";
 import {
+  loadAdjustments,
   loadDividends,
   loadPrices,
   loadSettings,
   loadTrades,
+  saveAdjustments,
   saveDividends,
   savePrices,
   saveSettings,
   saveTrades,
 } from "./storage";
-import type { Dividend, PriceMap, Settings, Trade } from "./types";
+import type { Adjustment, Dividend, PriceMap, Settings, Trade } from "./types";
 
 /**
  * localStorage is an external store, so it is exposed through the
@@ -23,6 +25,7 @@ import type { Dividend, PriceMap, Settings, Trade } from "./types";
 export interface TradeState {
   trades: Trade[];
   dividends: Dividend[];
+  adjustments: Adjustment[];
   prices: PriceMap;
   settings: Settings;
 }
@@ -31,6 +34,7 @@ export interface TradeState {
 const EMPTY_STATE: TradeState = {
   trades: [],
   dividends: [],
+  adjustments: [],
   prices: {},
   settings: DEFAULT_SETTINGS,
 };
@@ -55,6 +59,7 @@ export function getSnapshot(): TradeState {
   snapshot ??= {
     trades: loadTrades(),
     dividends: loadDividends(),
+    adjustments: loadAdjustments(),
     prices: loadPrices(),
     settings: loadSettings(),
   };
@@ -74,6 +79,7 @@ export function update(recipe: (state: TradeState) => TradeState): void {
   snapshot = next;
   if (next.trades !== previous.trades) saveTrades(next.trades);
   if (next.dividends !== previous.dividends) saveDividends(next.dividends);
+  if (next.adjustments !== previous.adjustments) saveAdjustments(next.adjustments);
   if (next.prices !== previous.prices) savePrices(next.prices);
   if (next.settings !== previous.settings) saveSettings(next.settings);
   emit();

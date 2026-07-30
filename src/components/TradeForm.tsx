@@ -2,19 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { cashFlow, commissionFor, rateToPercent, taxFor } from "@/lib/fees";
-import { formatMoney } from "@/lib/format";
-import { openQuantity } from "@/lib/portfolio";
-import type { Settings, Trade, TradeDraft, TradeSide } from "@/lib/types";
+import { formatMoney, formatPercent, formatShares, formatSignedMoney, pnlColor } from "@/lib/format";
+import { simulateSell } from "@/lib/portfolio";
+import type { Position, Settings, TradeDraft, TradeSide } from "@/lib/types";
 import { useToday } from "@/lib/useToday";
 
 const EMPTY = { symbol: "", quantity: "", price: "", notes: "" };
 
 export function TradeForm({
-  trades,
+  positions,
   settings,
   onAdd,
 }: {
-  trades: Trade[];
+  positions: Position[];
   settings: Settings;
   onAdd: (draft: TradeDraft) => void;
 }) {
@@ -41,9 +41,18 @@ export function TradeForm({
   const tax = taxOverride === null ? autoTax : toNumber(taxOverride) ?? 0;
   const total = hasBasis ? cashFlow(side, quantity, price, commission, tax) : 0;
 
-  const held = useMemo(() => openQuantity(trades, fields.symbol), [trades, fields.symbol]);
-  const oversell =
-    side === "sell" && fields.symbol.trim() !== "" && quantity !== null && quantity > held;
+  const symbol = fields.symbol.trim().toUpperCase();
+  const position = useMemo(
+    () => positions.find((candidate) => candidate.symbol === symbol),
+    [positions, symbol],
+  );
+  const held = position?.quantity ?? 0;
+
+  // Live preview of what this sell would lock in, matched against the FIFO lots.
+  const simulation =
+    side === "sell" && hasBasis && symbol !== ""
+      ? simulateSell(position?.lots ?? [], quantity, price, commission, tax)
+      : null;
 
   function update(key: keyof typeof EMPTY, value: string) {
     setFields((previous) => ({ ...previous, [key]: value }));
@@ -223,13 +232,36 @@ export function TradeForm({
         </div>
       </div>
 
-      {error && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
-      {!error && oversell && (
-        <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
-          You only hold {held} share{held === 1 ? "" : "s"} of {fields.symbol.trim().toUpperCase()} —
-          this will record a short position.
-        </p>
+      {simulation && (
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              Selling now would realise
+            </span>
+            <span className={`text-xl font-semibold tabular-nums ${pnlColor(simulation.realized)}`}>
+              {formatSignedMoney(simulation.realized)}
+            </span>
+            {simulation.returnPercent !== undefined && (
+              <span className={`text-sm font-medium tabular-nums ${pnlColor(simulation.realized)}`}>
+                {formatPercent(simulation.returnPercent)}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            FIFO cost of the oldest {formatShares(simulation.matched)} share
+            {simulation.matched === 1 ? "" : "s"} {formatMoney(simulation.costBasis)} · proceeds after
+            fees {formatMoney(simulation.netProceeds)} · you hold {formatShares(held)}
+          </p>
+          {simulation.uncovered > 0 && (
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              {formatShares(simulation.uncovered)} of these shares are not covered by any lot — they
+              would realise against a zero cost basis and open a short position.
+            </p>
+          )}
+        </div>
       )}
+
+      {error && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
     </form>
   );
 }

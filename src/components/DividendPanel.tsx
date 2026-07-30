@@ -1,10 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatDate, formatMoney, pnlColor } from "@/lib/format";
 import type { Dividend, DividendDraft } from "@/lib/types";
+import { byText, matchesSymbol, useSort, useSymbols } from "@/lib/useSort";
+import type { Column } from "@/lib/useSort";
 import { useToday } from "@/lib/useToday";
-import { Empty, panelClass, Td, Th } from "./table";
+import {
+  Empty,
+  FilterBar,
+  FilterCount,
+  panelClass,
+  SortableTh,
+  SymbolFilter,
+  Td,
+  Th,
+} from "./table";
+
+const COLUMNS: Column<Dividend, string>[] = [
+  { key: "date", label: "Paid on", align: "left", defaultDirection: "desc", compare: (a, b) => byText(a.date, b.date) },
+  { key: "symbol", label: "Symbol", align: "left", defaultDirection: "asc", compare: (a, b) => byText(a.symbol, b.symbol) },
+  { key: "amount", label: "Amount", defaultDirection: "desc", compare: (a, b) => a.amount - b.amount },
+];
 
 const EMPTY = { symbol: "", amount: "", notes: "" };
 
@@ -22,8 +39,18 @@ export function DividendPanel({
   const [fields, setFields] = useState(EMPTY);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [symbolFilter, setSymbolFilter] = useState("");
   const today = useToday();
   const date = pickedDate ?? today;
+
+  const { sort, toggle, sortRows } = useSort(COLUMNS, "date");
+  const symbols = useSymbols(dividends);
+
+  const visible = useMemo(
+    () => sortRows(dividends.filter((dividend) => matchesSymbol(dividend.symbol, symbolFilter))),
+    [dividends, symbolFilter, sortRows],
+  );
+  const visibleTotal = visible.reduce((sum, dividend) => sum + dividend.amount, 0);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -126,22 +153,47 @@ export function DividendPanel({
         {error && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
       </form>
 
+      {dividends.length > 0 && (
+        <FilterBar>
+          <SymbolFilter
+            id="dividends-symbol"
+            value={symbolFilter}
+            symbols={symbols}
+            onChange={setSymbolFilter}
+          />
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">
+            Shown{" "}
+            <span className="font-medium tabular-nums text-neutral-900 dark:text-neutral-50">
+              {formatMoney(visibleTotal)}
+            </span>
+          </span>
+          <FilterCount
+            shown={visible.length}
+            total={dividends.length}
+            noun="payments"
+            onClear={() => setSymbolFilter("")}
+          />
+        </FilterBar>
+      )}
+
       {dividends.length === 0 ? (
         <Empty>No dividends logged yet.</Empty>
+      ) : visible.length === 0 ? (
+        <Empty>No dividends match this filter.</Empty>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[36rem] text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                <Th align="left">Paid on</Th>
-                <Th align="left">Symbol</Th>
-                <Th>Amount</Th>
+                {COLUMNS.map((column) => (
+                  <SortableTh key={column.key} column={column} sort={sort} onSort={toggle} />
+                ))}
                 <Th align="left">Notes</Th>
                 <Th>{""}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {sortNewestFirst(dividends).map((dividend) => (
+              {visible.map((dividend) => (
                 <tr key={dividend.id} className="text-neutral-700 dark:text-neutral-300">
                   <Td align="left">{formatDate(dividend.date)}</Td>
                   <Td align="left">
@@ -184,6 +236,3 @@ function Label({ htmlFor, children }: { htmlFor: string; children: React.ReactNo
   );
 }
 
-function sortNewestFirst(dividends: Dividend[]): Dividend[] {
-  return [...dividends].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-}

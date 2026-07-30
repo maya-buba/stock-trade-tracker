@@ -14,27 +14,31 @@ export function Dashboard() {
   const {
     trades,
     dividends,
+    adjustments,
     positions,
+    realizedByTradeId,
     totals,
     settings,
     addTrade,
     deleteTrade,
     addDividend,
     deleteDividend,
+    addAdjustment,
+    deleteAdjustment,
     setPrice,
     updateSettings,
     resetSettings,
     clearAll,
   } = useTrades();
   const [confirmingClear, setConfirmingClear] = useState(false);
-  const hasData = trades.length > 0 || dividends.length > 0;
+  const hasData = trades.length > 0 || dividends.length > 0 || adjustments.length > 0;
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-            Trade Tracker
+            Bonaparte Wealth
           </h1>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             Your trades stay in this browser — nothing is uploaded anywhere.
@@ -91,9 +95,16 @@ export function Dashboard() {
           onChange={updateSettings}
           onReset={resetSettings}
         />
-        <TradeForm trades={trades} settings={settings} onAdd={addTrade} />
-        <PositionsTable positions={positions} onPriceChange={setPrice} />
-        <TradesTable trades={trades} onDelete={deleteTrade} />
+        <TradeForm positions={positions} settings={settings} onAdd={addTrade} />
+        <PositionsTable positions={positions} settings={settings} onPriceChange={setPrice} />
+        <TradesTable
+          trades={trades}
+          adjustments={adjustments}
+          realizedByTradeId={realizedByTradeId}
+          onDelete={deleteTrade}
+          onAddAdjustment={addAdjustment}
+          onDeleteAdjustment={deleteAdjustment}
+        />
         <DividendPanel
           dividends={dividends}
           total={totals.dividends}

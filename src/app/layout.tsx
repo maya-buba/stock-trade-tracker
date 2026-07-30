@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Trade Tracker",
-  description: "Track stock trades, positions, and realised or unrealised P&L.",
+  title: "Bonaparte Wealth",
+  description: "Track stock trades, positions, dividends, and realised or unrealised P&L.",
 };
 
 export default function RootLayout({

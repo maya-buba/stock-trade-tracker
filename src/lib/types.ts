@@ -33,6 +33,23 @@ export interface Dividend {
 
 export type DividendDraft = Omit<Dividend, "id">;
 
+/**
+ * A realised gain or loss entered by hand, for a trade with no record in the
+ * log. It carries no shares or price — just the amount, and which stock and
+ * when, so it lands in the right year.
+ */
+export interface Adjustment {
+  id: string;
+  symbol: string;
+  /** Date the gain or loss was realised, as `YYYY-MM-DD`. */
+  date: string;
+  /** Positive for a gain, negative for a loss. */
+  amount: number;
+  notes?: string;
+}
+
+export type AdjustmentDraft = Omit<Adjustment, "id">;
+
 /** Rates used to fill in commission and tax on new trades. */
 export interface FeeSettings {
   /** Fraction of traded value, e.g. 0.00157. */
@@ -53,15 +70,27 @@ export interface Settings extends FeeSettings {
 /** Latest known price per symbol, entered by hand for now. */
 export type PriceMap = Record<string, number>;
 
+/** Shares from one buy that are still open, oldest-first under FIFO. */
+export interface Lot {
+  /** Shares still held from this purchase. */
+  quantity: number;
+  /** Cost per share, including the buy's commission and tax. */
+  costPerShare: number;
+  /** Purchase date as `YYYY-MM-DD`. */
+  date: string;
+}
+
 /** An open holding, derived from the trade log. Never stored. */
 export interface Position {
   symbol: string;
   /** Open shares. Negative means more was sold than bought (a short). */
   quantity: number;
-  /** Average cost per open share, fees included. */
+  /** Weighted average cost of the remaining lots, fees included. */
   avgCost: number;
-  /** quantity * avgCost */
+  /** Total cost of the remaining lots. */
   costBasis: number;
+  /** Open lots in FIFO order — oldest first, so sells consume from the front. */
+  lots: Lot[];
   /** Locked-in profit/loss from closed shares, net of fees. */
   realizedPnl: number;
   /** Dividends received from this symbol, all time. */
@@ -71,12 +100,16 @@ export interface Position {
   unrealizedPnl?: number;
 }
 
-/** A closed-out gain or loss, attributed to the date of the sell. */
+/** A closed-out gain or loss, attributed to the date it was realised. */
 export interface RealizedEvent {
   symbol: string;
   /** `YYYY-MM-DD` of the sell that closed the shares. */
   date: string;
   amount: number;
+  /** Whether a logged sell produced it or it was entered by hand. */
+  source: "sell" | "manual";
+  /** The sell's id, so a trade row can show what it realised. */
+  tradeId?: string;
 }
 
 export interface PortfolioTotals {

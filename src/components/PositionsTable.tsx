@@ -1,48 +1,136 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatMoney, formatPercent, formatShares, formatSignedMoney, pnlColor } from "@/lib/format";
-import { returnPercent } from "@/lib/portfolio";
-import type { Position } from "@/lib/types";
-import { Empty, panelClass, Td, Th } from "./table";
+import { returnPercent, simulateExit } from "@/lib/portfolio";
+import type { Position, Settings } from "@/lib/types";
+import { byNumber, byText, matchesSymbol, useSort, useSymbols } from "@/lib/useSort";
+import type { Column } from "@/lib/useSort";
+import {
+  Empty,
+  FilterBar,
+  FilterCount,
+  panelClass,
+  SegmentedFilter,
+  SortableTh,
+  SymbolFilter,
+  Td,
+} from "./table";
+
+type Status = "all" | "open" | "closed";
+
+/** A position plus the exit simulation, so both can be sorted on. */
+interface Row {
+  position: Position;
+  exitPnl?: number;
+  exitPercent?: number;
+}
+
+const COLUMNS: Column<Row, string>[] = [
+  { key: "symbol", label: "Symbol", align: "left", defaultDirection: "asc", compare: (a, b) => byText(a.position.symbol, b.position.symbol) },
+  { key: "shares", label: "Shares", defaultDirection: "desc", compare: (a, b) => a.position.quantity - b.position.quantity },
+  { key: "avgCost", label: "Avg cost", defaultDirection: "desc", compare: (a, b) => a.position.avgCost - b.position.avgCost },
+  { key: "costBasis", label: "Cost basis", defaultDirection: "desc", compare: (a, b) => a.position.costBasis - b.position.costBasis },
+  { key: "lastPrice", label: "Last price", defaultDirection: "desc", compare: (a, b) => byNumber(a.position.lastPrice, b.position.lastPrice) },
+  { key: "marketValue", label: "Market value", defaultDirection: "desc", compare: (a, b) => byNumber(a.position.marketValue, b.position.marketValue) },
+  { key: "unrealised", label: "Unrealised", defaultDirection: "desc", compare: (a, b) => byNumber(a.position.unrealizedPnl, b.position.unrealizedPnl) },
+  { key: "ifSoldNow", label: "If sold now", defaultDirection: "desc", compare: (a, b) => byNumber(a.exitPnl, b.exitPnl) },
+  { key: "realised", label: "Realised", defaultDirection: "desc", compare: (a, b) => a.position.realizedPnl - b.position.realizedPnl },
+  { key: "dividends", label: "Dividends", defaultDirection: "desc", compare: (a, b) => a.position.dividends - b.position.dividends },
+];
 
 export function PositionsTable({
   positions,
+  settings,
   onPriceChange,
 }: {
   positions: Position[];
+  settings: Settings;
   onPriceChange: (symbol: string, price: number | undefined) => void;
 }) {
+  const [symbolFilter, setSymbolFilter] = useState("");
+  const [status, setStatus] = useState<Status>("all");
+  const { sort, toggle, sortRows } = useSort(COLUMNS, "symbol");
+  const symbols = useSymbols(positions);
+
+  const rows = useMemo<Row[]>(
+    () =>
+      positions.map((position) => {
+        const exit =
+          position.quantity === 0 || position.lastPrice === undefined
+            ? undefined
+            : simulateExit(position, position.lastPrice, settings);
+        return { position, exitPnl: exit?.realized, exitPercent: exit?.returnPercent };
+      }),
+    [positions, settings],
+  );
+
+  const visible = useMemo(() => {
+    const filtered = rows.filter((row) => {
+      if (!matchesSymbol(row.position.symbol, symbolFilter)) return false;
+      if (status === "open") return row.position.quantity !== 0;
+      if (status === "closed") return row.position.quantity === 0;
+      return true;
+    });
+    return sortRows(filtered);
+  }, [rows, symbolFilter, status, sortRows]);
+
   return (
     <section className={panelClass}>
-      <header className="flex items-baseline justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Positions</h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Enter a last price to see unrealised P&amp;L
+          FIFO cost basis · enter a last price to simulate closing the position
         </p>
       </header>
 
+      {positions.length > 0 && (
+        <FilterBar>
+          <SymbolFilter
+            id="positions-symbol"
+            value={symbolFilter}
+            symbols={symbols}
+            onChange={setSymbolFilter}
+          />
+          <SegmentedFilter
+            label="Status"
+            value={status}
+            options={[
+              { value: "all", label: "All" },
+              { value: "open", label: "Open" },
+              { value: "closed", label: "Closed" },
+            ]}
+            onChange={setStatus}
+          />
+          <FilterCount
+            shown={visible.length}
+            total={rows.length}
+            noun="positions"
+            onClear={() => {
+              setSymbolFilter("");
+              setStatus("all");
+            }}
+          />
+        </FilterBar>
+      )}
+
       {positions.length === 0 ? (
         <Empty>Log a trade and your positions will show up here.</Empty>
+      ) : visible.length === 0 ? (
+        <Empty>No positions match these filters.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[58rem] text-sm">
+          <table className="w-full min-w-[64rem] text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                <Th align="left">Symbol</Th>
-                <Th>Shares</Th>
-                <Th>Avg cost</Th>
-                <Th>Cost basis</Th>
-                <Th>Last price</Th>
-                <Th>Market value</Th>
-                <Th>Unrealised</Th>
-                <Th>Realised</Th>
-                <Th>Dividends</Th>
+                {COLUMNS.map((column) => (
+                  <SortableTh key={column.key} column={column} sort={sort} onSort={toggle} />
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {positions.map((position) => (
-                <Row key={position.symbol} position={position} onPriceChange={onPriceChange} />
+              {visible.map((row) => (
+                <PositionRow key={row.position.symbol} row={row} onPriceChange={onPriceChange} />
               ))}
             </tbody>
           </table>
@@ -52,13 +140,14 @@ export function PositionsTable({
   );
 }
 
-function Row({
-  position,
+function PositionRow({
+  row,
   onPriceChange,
 }: {
-  position: Position;
+  row: Row;
   onPriceChange: (symbol: string, price: number | undefined) => void;
 }) {
+  const { position, exitPnl, exitPercent } = row;
   const isClosed = position.quantity === 0;
   const unrealized = isClosed ? undefined : position.unrealizedPnl;
   const percent =
@@ -98,6 +187,18 @@ function Row({
             {formatSignedMoney(unrealized)}
             {percent !== undefined && (
               <span className="ml-1 text-xs opacity-75">{formatPercent(percent)}</span>
+            )}
+          </>
+        )}
+      </Td>
+      <Td className={exitPnl === undefined ? "" : pnlColor(exitPnl)}>
+        {exitPnl === undefined ? (
+          "—"
+        ) : (
+          <>
+            {formatSignedMoney(exitPnl)}
+            {exitPercent !== undefined && (
+              <span className="ml-1 text-xs opacity-75">{formatPercent(exitPercent)}</span>
             )}
           </>
         )}

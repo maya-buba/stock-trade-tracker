@@ -4,11 +4,11 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { DEFAULT_SETTINGS } from "./fees";
 import { buildPortfolio, computeTotals } from "./portfolio";
 import { getServerSnapshot, getSnapshot, subscribe, update } from "./store";
-import type { DividendDraft, Settings, TradeDraft } from "./types";
+import type { AdjustmentDraft, DividendDraft, Settings, TradeDraft } from "./types";
 
 /** Single source of truth for the dashboard: trades in, positions out. */
 export function useTrades() {
-  const { trades, dividends, prices, settings } = useSyncExternalStore(
+  const { trades, dividends, adjustments, prices, settings } = useSyncExternalStore(
     subscribe,
     getSnapshot,
     getServerSnapshot,
@@ -48,6 +48,23 @@ export function useTrades() {
     }));
   }, []);
 
+  const addAdjustment = useCallback((draft: AdjustmentDraft) => {
+    update((state) => ({
+      ...state,
+      adjustments: [
+        ...state.adjustments,
+        { ...draft, id: createId(), symbol: draft.symbol.trim().toUpperCase() },
+      ],
+    }));
+  }, []);
+
+  const deleteAdjustment = useCallback((id: string) => {
+    update((state) => ({
+      ...state,
+      adjustments: state.adjustments.filter((adjustment) => adjustment.id !== id),
+    }));
+  }, []);
+
   const setPrice = useCallback((symbol: string, price: number | undefined) => {
     const key = symbol.toUpperCase();
     update((state) => {
@@ -74,19 +91,21 @@ export function useTrades() {
 
   /** Clears logged data but keeps configured rates and the carried-forward figure. */
   const clearAll = useCallback(() => {
-    update((state) => ({ ...state, trades: [], dividends: [], prices: {} }));
+    update((state) => ({ ...state, trades: [], dividends: [], adjustments: [], prices: {} }));
   }, []);
 
   const portfolio = useMemo(
-    () => buildPortfolio(trades, prices, dividends),
-    [trades, prices, dividends],
+    () => buildPortfolio(trades, prices, dividends, adjustments),
+    [trades, prices, dividends, adjustments],
   );
   const totals = useMemo(() => computeTotals(portfolio, settings), [portfolio, settings]);
 
   return {
     trades,
     dividends,
+    adjustments,
     positions: portfolio.positions,
+    realizedByTradeId: portfolio.realizedByTradeId,
     totals,
     prices,
     settings,
@@ -94,6 +113,8 @@ export function useTrades() {
     deleteTrade,
     addDividend,
     deleteDividend,
+    addAdjustment,
+    deleteAdjustment,
     setPrice,
     updateSettings,
     resetSettings,
