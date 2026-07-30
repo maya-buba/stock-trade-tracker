@@ -70,7 +70,11 @@ export function saveAdjustments(adjustments: Adjustment[]): void {
 }
 
 export function loadSettings(): Settings {
-  const stored = read<Partial<Settings>>(SETTINGS_KEY, {});
+  return parseSettings(read<Partial<Settings>>(SETTINGS_KEY, {}));
+}
+
+export function parseSettings(value: Partial<Settings> | undefined | null): Settings {
+  const stored = value ?? {};
   return {
     commissionRate: numberOr(stored.commissionRate, DEFAULT_SETTINGS.commissionRate),
     taxRate: numberOr(stored.taxRate, DEFAULT_SETTINGS.taxRate),
@@ -84,9 +88,10 @@ export function saveSettings(settings: Settings): void {
 
 /**
  * Validates a stored trade, and upgrades rows from the first version, which
- * had a single `fees` field instead of separate commission and tax.
+ * had a single `fees` field instead of separate commission and tax. Exported
+ * so a JSON backup import can validate untrusted file contents the same way.
  */
-function migrateTrade(value: unknown): Trade | null {
+export function migrateTrade(value: unknown): Trade | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
 
@@ -117,7 +122,7 @@ function migrateTrade(value: unknown): Trade | null {
 }
 
 /** Shared shape of dividends and manual adjustments: a dated amount per symbol. */
-function parseDatedAmount<T extends Dividend | Adjustment>(value: unknown): T | null {
+export function parseDatedAmount<T extends Dividend | Adjustment>(value: unknown): T | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
 

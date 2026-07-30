@@ -21,10 +21,27 @@ In your browser's `localStorage`, under `stt.trades.v1`, `stt.dividends.v1`,
 server, no database, and no network code anywhere in `src/` — so:
 
 - Data is per browser and per device. It does not sync between your phone and
-  your laptop, and clearing browsing data erases it. **Export CSV is the backup.**
+  your laptop, and clearing browsing data erases it.
 - Anyone else opening the site gets their own separate, empty tracker.
 - Two people sharing one browser profile would share one dataset, since there
   are no accounts.
+
+### Moving data to another device
+
+There's no account and no sync — **Backup (JSON)** in the header is how you move
+data between devices:
+
+1. On the device with your data, click **Backup (JSON)** — saves one file with
+   everything (trades, dividends, manual entries, prices, settings).
+2. Send that file to the other device (AirDrop, email, a cloud drive — your choice).
+3. On the other device, open the site, click **Restore backup**, pick the file.
+   You'll see a count of what's in it before anything is overwritten — restoring
+   replaces everything currently on that device.
+
+**Export trades CSV** / **Export dividends CSV** are for spreadsheets, not backups
+— a CSV round-trips numbers but not `id`s, so re-importing one would create
+duplicates rather than update in place. Use the JSON backup for moving between
+devices; CSV for opening in Excel/Sheets.
 
 ## Deploying
 
@@ -97,17 +114,37 @@ and sold at 22.30: commission 16.642 + 17.5055 = **34.15**, tax **2.39**, profit
 
 Total P&L = unrealised + realised + dividends + carried-forward.
 
+### Performance chart
+
+The panel at the top of the dashboard buckets realised P&L (sells + manual
+entries) plus dividends into weeks or months, for a year you pick, and shows one
+diverging bar per period — up for a gain, down for a loss. Hover or focus a bar
+for the exact realised/dividend/total split; the year dropdown only lists years
+that actually have data (plus the current year).
+
+### Sorting, filtering, and row limits
+
+Positions and Trade history both sort by any column (click a header; click again
+to reverse) and filter by symbol, plus status (open/closed) on Positions and
+type (buy/sell/manual) on Trade history. Totals shown next to the filters (like
+"Realised shown") reflect everything that matches the filter, not just the rows
+currently on screen — the **Show** dropdown only limits how many rows render, it
+never changes the numbers.
+
 ## Layout
 
 | Path | What lives there |
 | --- | --- |
-| `src/lib/types.ts` | `Trade`, `Dividend`, `Position`, `Settings` shapes |
+| `src/lib/types.ts` | `Trade`, `Dividend`, `Adjustment`, `Position`, `Settings` shapes |
 | `src/lib/fees.ts` | Commission/tax formulas and the default rates |
-| `src/lib/portfolio.ts` | All the P&L maths — pure functions, no React |
+| `src/lib/portfolio.ts` | FIFO lots, realised/unrealised P&L — pure functions, no React |
+| `src/lib/timeSeries.ts` | Buckets realised P&L + dividends into weeks/months for the chart |
 | `src/lib/storage.ts` | The only place that touches `localStorage` |
+| `src/lib/backup.ts` | JSON export/import for moving data between devices |
 | `src/lib/store.ts` | External store powering `useSyncExternalStore` |
 | `src/lib/useTrades.ts` | The hook the UI reads from |
-| `src/components/` | Dashboard, forms, and tables |
+| `src/lib/useSort.ts` | Generic column-sort state shared by both tables |
+| `src/components/` | Dashboard, forms, tables, and the performance chart |
 
 ### Swapping in a real database
 
@@ -118,11 +155,10 @@ state.
 
 ## Not built yet
 
-- Live quotes (needs a market data API key)
+- Live quotes (needs a market data API key — see below)
 - Multi-currency / FX — everything is baht
-- FIFO or specific-lot accounting for taxes — this is average-cost only
 - Splits and options
-- CSV import, and CSV export of dividends (trade export works)
+- CSV import (export works, for both trades and dividends)
 
 ## Scripts
 

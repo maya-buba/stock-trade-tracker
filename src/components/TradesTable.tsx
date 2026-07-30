@@ -12,12 +12,14 @@ import {
   FilterBar,
   FilterCount,
   panelClass,
+  RowLimitSelect,
   SegmentedFilter,
   SortableTh,
   SymbolFilter,
   Td,
   Th,
 } from "./table";
+import type { RowLimit } from "./table";
 
 type Kind = "buy" | "sell" | "manual";
 type KindFilter = "all" | Kind;
@@ -71,6 +73,7 @@ export function TradesTable({
   const [formOpen, setFormOpen] = useState(false);
   const [symbolFilter, setSymbolFilter] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
+  const [rowLimit, setRowLimit] = useState<RowLimit>(25);
   const { sort, toggle, sortRows } = useSort(COLUMNS, "date");
 
   const rows = useMemo<LedgerRow[]>(
@@ -111,8 +114,9 @@ export function TradesTable({
     return sortRows(filtered);
   }, [rows, symbolFilter, kind, sortRows]);
 
-  /** Realised total for exactly what is on screen, so filters stay meaningful. */
+  /** Realised total for every filtered entry, not just the rows shown by the row limit. */
   const visibleRealized = visible.reduce((total, row) => total + (row.realized ?? 0), 0);
+  const shown = rowLimit === undefined ? visible : visible.slice(0, rowLimit);
 
   return (
     <section className={panelClass}>
@@ -164,8 +168,9 @@ export function TradesTable({
               {formatSignedMoney(visibleRealized)}
             </span>
           </span>
+          <RowLimitSelect id="trades-limit" value={rowLimit} onChange={setRowLimit} />
           <FilterCount
-            shown={visible.length}
+            shown={shown.length}
             total={rows.length}
             noun="entries"
             onClear={() => {
@@ -193,7 +198,7 @@ export function TradesTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {visible.map((row) => (
+              {shown.map((row) => (
                 <LedgerTableRow
                   key={row.id}
                   row={row}

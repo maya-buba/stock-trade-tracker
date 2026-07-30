@@ -4,6 +4,7 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { DEFAULT_SETTINGS } from "./fees";
 import { buildPortfolio, computeTotals } from "./portfolio";
 import { getServerSnapshot, getSnapshot, subscribe, update } from "./store";
+import type { TradeState } from "./store";
 import type { AdjustmentDraft, DividendDraft, Settings, TradeDraft } from "./types";
 
 /** Single source of truth for the dashboard: trades in, positions out. */
@@ -94,6 +95,11 @@ export function useTrades() {
     update((state) => ({ ...state, trades: [], dividends: [], adjustments: [], prices: {} }));
   }, []);
 
+  /** Overwrites everything, including settings — used when restoring a backup. */
+  const replaceAll = useCallback((next: TradeState) => {
+    update(() => next);
+  }, []);
+
   const portfolio = useMemo(
     () => buildPortfolio(trades, prices, dividends, adjustments),
     [trades, prices, dividends, adjustments],
@@ -106,6 +112,7 @@ export function useTrades() {
     adjustments,
     positions: portfolio.positions,
     realizedByTradeId: portfolio.realizedByTradeId,
+    realizedEvents: portfolio.realizedEvents,
     totals,
     prices,
     settings,
@@ -119,6 +126,7 @@ export function useTrades() {
     updateSettings,
     resetSettings,
     clearAll,
+    replaceAll,
   };
 }
 

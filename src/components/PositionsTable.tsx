@@ -11,11 +11,13 @@ import {
   FilterBar,
   FilterCount,
   panelClass,
+  RowLimitSelect,
   SegmentedFilter,
   SortableTh,
   SymbolFilter,
   Td,
 } from "./table";
+import type { RowLimit } from "./table";
 
 type Status = "all" | "open" | "closed";
 
@@ -50,6 +52,7 @@ export function PositionsTable({
 }) {
   const [symbolFilter, setSymbolFilter] = useState("");
   const [status, setStatus] = useState<Status>("all");
+  const [rowLimit, setRowLimit] = useState<RowLimit>(25);
   const { sort, toggle, sortRows } = useSort(COLUMNS, "symbol");
   const symbols = useSymbols(positions);
 
@@ -74,6 +77,8 @@ export function PositionsTable({
     });
     return sortRows(filtered);
   }, [rows, symbolFilter, status, sortRows]);
+
+  const shown = rowLimit === undefined ? visible : visible.slice(0, rowLimit);
 
   return (
     <section className={panelClass}>
@@ -102,8 +107,9 @@ export function PositionsTable({
             ]}
             onChange={setStatus}
           />
+          <RowLimitSelect id="positions-limit" value={rowLimit} onChange={setRowLimit} />
           <FilterCount
-            shown={visible.length}
+            shown={shown.length}
             total={rows.length}
             noun="positions"
             onClear={() => {
@@ -129,7 +135,7 @@ export function PositionsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {visible.map((row) => (
+              {shown.map((row) => (
                 <PositionRow key={row.position.symbol} row={row} onPriceChange={onPriceChange} />
               ))}
             </tbody>

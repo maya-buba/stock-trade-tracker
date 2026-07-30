@@ -168,6 +168,44 @@ export function SegmentedFilter<T extends string>({
   );
 }
 
+export const ROW_LIMIT_OPTIONS = [10, 25, 50, 100] as const;
+/** `undefined` means "All" — kept out of the options array since it isn't a number. */
+export type RowLimit = (typeof ROW_LIMIT_OPTIONS)[number] | undefined;
+
+export function RowLimitSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: RowLimit;
+  onChange: (value: RowLimit) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor={id} className="text-xs text-neutral-500 dark:text-neutral-400">
+        Show
+      </label>
+      <select
+        id={id}
+        value={value ?? "all"}
+        onChange={(event) => {
+          const next = event.target.value;
+          onChange(next === "all" ? undefined : (Number(next) as RowLimit));
+        }}
+        className="h-8 rounded-lg border border-neutral-300 bg-white px-2 text-sm text-neutral-900 outline-none transition-colors focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50 dark:focus:border-neutral-400"
+      >
+        {ROW_LIMIT_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value="all">All</option>
+      </select>
+    </div>
+  );
+}
+
 /** "12 of 30" style count, plus a clear action when a filter is narrowing. */
 export function FilterCount({
   shown,
