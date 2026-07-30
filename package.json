@@ -1,12 +1,13 @@
 {
-  "name": "stock-trade-tracker",
+  "name": "bonaparte-wealth",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "bash scripts/deploy-pages.sh"
   },
   "dependencies": {
     "next": "16.2.12",

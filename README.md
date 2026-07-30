@@ -4,6 +4,8 @@ A personal stock trade tracker in Thai baht: log buys and sells, and see your
 open positions, cost basis, dividends, and realised/unrealised P&L. Everything
 is stored in your browser — no account, no server, nothing uploaded.
 
+**Live:** https://maya-buba.github.io/stock-trade-tracker/
+
 ## Getting started
 
 ```bash
@@ -11,6 +13,35 @@ npm run dev
 ```
 
 Then open http://localhost:3000.
+
+## Where your data lives
+
+In your browser's `localStorage`, under `stt.trades.v1`, `stt.dividends.v1`,
+`stt.adjustments.v1`, `stt.prices.v1`, and `stt.settings.v1`. There is no
+server, no database, and no network code anywhere in `src/` — so:
+
+- Data is per browser and per device. It does not sync between your phone and
+  your laptop, and clearing browsing data erases it. **Export CSV is the backup.**
+- Anyone else opening the site gets their own separate, empty tracker.
+- Two people sharing one browser profile would share one dataset, since there
+  are no accounts.
+
+## Deploying
+
+```bash
+npm run deploy
+```
+
+Builds the static export and force-pushes it to the `gh-pages` branch, which
+GitHub Pages serves. `NEXT_PUBLIC_BASE_PATH` must match the repository name,
+since project Pages sites are served from a subpath.
+
+There is also `.github/workflows/deploy.yml` for deploying automatically on
+push. Committing it requires the `workflow` OAuth scope:
+
+```bash
+gh auth refresh -s workflow
+```
 
 ## How it works
 
