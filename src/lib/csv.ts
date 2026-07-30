@@ -1,6 +1,17 @@
+import { cashFlow } from "./fees";
 import type { Trade } from "./types";
 
-const HEADERS = ["date", "symbol", "side", "quantity", "price", "fees", "notes"] as const;
+const HEADERS = [
+  "date",
+  "symbol",
+  "side",
+  "quantity",
+  "price",
+  "commission",
+  "tax",
+  "total",
+  "notes",
+] as const;
 
 export function tradesToCsv(trades: Trade[]): string {
   const rows = trades.map((trade) =>
@@ -10,7 +21,9 @@ export function tradesToCsv(trades: Trade[]): string {
       trade.side,
       trade.quantity,
       trade.price,
-      trade.fees,
+      round2(trade.commission),
+      round2(trade.tax),
+      round2(cashFlow(trade.side, trade.quantity, trade.price, trade.commission, trade.tax)),
       trade.notes ?? "",
     ]
       .map(escapeCell)
@@ -27,6 +40,10 @@ export function downloadCsv(trades: Trade[], filename = "trades.csv"): void {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function escapeCell(value: string | number): string {

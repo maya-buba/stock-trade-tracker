@@ -1,5 +1,6 @@
 "use client";
 
+import { cashFlow } from "@/lib/fees";
 import { formatDate, formatMoney, formatShares } from "@/lib/format";
 import { sortNewestFirst } from "@/lib/portfolio";
 import type { Trade } from "@/lib/types";
@@ -25,15 +26,16 @@ export function TradesTable({
         <Empty>No trades logged yet.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[48rem] text-sm">
+          <table className="w-full min-w-[54rem] text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 <Th align="left">Date</Th>
                 <Th align="left">Symbol</Th>
                 <Th align="left">Side</Th>
-                <Th>Quantity</Th>
+                <Th>Shares</Th>
                 <Th>Price</Th>
-                <Th>Fees</Th>
+                <Th>Comm</Th>
+                <Th>Tax</Th>
                 <Th>Total</Th>
                 <Th align="left">Notes</Th>
                 <Th>{""}</Th>
@@ -53,8 +55,11 @@ export function TradesTable({
                   </Td>
                   <Td>{formatShares(trade.quantity)}</Td>
                   <Td>{formatMoney(trade.price)}</Td>
-                  <Td>{trade.fees === 0 ? "—" : formatMoney(trade.fees)}</Td>
-                  <Td>{formatMoney(total(trade))}</Td>
+                  <Td>{formatMoney(trade.commission)}</Td>
+                  <Td>{formatMoney(trade.tax)}</Td>
+                  <Td className="font-medium text-neutral-900 dark:text-neutral-50">
+                    {formatMoney(total(trade))}
+                  </Td>
                   <Td align="left" className="max-w-xs truncate text-neutral-500 dark:text-neutral-400">
                     {trade.notes ?? "—"}
                   </Td>
@@ -78,10 +83,9 @@ export function TradesTable({
   );
 }
 
-/** Cash out the door on a buy, cash in on a sell. */
+/** Cash out the door on a buy, cash in on a sell — fees included either way. */
 function total(trade: Trade): number {
-  const gross = trade.quantity * trade.price;
-  return trade.side === "buy" ? gross + trade.fees : gross - trade.fees;
+  return cashFlow(trade.side, trade.quantity, trade.price, trade.commission, trade.tax);
 }
 
 function SideBadge({ side }: { side: Trade["side"] }) {

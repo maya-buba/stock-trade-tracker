@@ -3,14 +3,31 @@
 import { useState } from "react";
 import { downloadCsv } from "@/lib/csv";
 import { useTrades } from "@/lib/useTrades";
+import { DividendPanel } from "./DividendPanel";
 import { PositionsTable } from "./PositionsTable";
+import { SettingsPanel } from "./SettingsPanel";
 import { SummaryCards } from "./SummaryCards";
 import { TradeForm } from "./TradeForm";
 import { TradesTable } from "./TradesTable";
 
 export function Dashboard() {
-  const { trades, positions, totals, addTrade, deleteTrade, setPrice, clearAll } = useTrades();
+  const {
+    trades,
+    dividends,
+    positions,
+    totals,
+    settings,
+    addTrade,
+    deleteTrade,
+    addDividend,
+    deleteDividend,
+    setPrice,
+    updateSettings,
+    resetSettings,
+    clearAll,
+  } = useTrades();
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const hasData = trades.length > 0 || dividends.length > 0;
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -58,7 +75,7 @@ export function Dashboard() {
             <button
               type="button"
               onClick={() => setConfirmingClear(true)}
-              disabled={trades.length === 0}
+              disabled={!hasData}
               className="h-9 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               Reset
@@ -69,9 +86,20 @@ export function Dashboard() {
 
       <div className="mt-8 flex flex-col gap-6">
         <SummaryCards totals={totals} />
-        <TradeForm trades={trades} onAdd={addTrade} />
+        <SettingsPanel
+          settings={settings}
+          onChange={updateSettings}
+          onReset={resetSettings}
+        />
+        <TradeForm trades={trades} settings={settings} onAdd={addTrade} />
         <PositionsTable positions={positions} onPriceChange={setPrice} />
         <TradesTable trades={trades} onDelete={deleteTrade} />
+        <DividendPanel
+          dividends={dividends}
+          total={totals.dividends}
+          onAdd={addDividend}
+          onDelete={deleteDividend}
+        />
       </div>
     </main>
   );

@@ -1,7 +1,17 @@
 "use client";
 
-import { loadPrices, loadTrades, savePrices, saveTrades } from "./storage";
-import type { PriceMap, Trade } from "./types";
+import { DEFAULT_SETTINGS } from "./fees";
+import {
+  loadDividends,
+  loadPrices,
+  loadSettings,
+  loadTrades,
+  saveDividends,
+  savePrices,
+  saveSettings,
+  saveTrades,
+} from "./storage";
+import type { Dividend, PriceMap, Settings, Trade } from "./types";
 
 /**
  * localStorage is an external store, so it is exposed through the
@@ -12,11 +22,18 @@ import type { PriceMap, Trade } from "./types";
 
 export interface TradeState {
   trades: Trade[];
+  dividends: Dividend[];
   prices: PriceMap;
+  settings: Settings;
 }
 
 /** What the server and the hydration render see: nothing is known yet. */
-const EMPTY_STATE: TradeState = { trades: [], prices: {} };
+const EMPTY_STATE: TradeState = {
+  trades: [],
+  dividends: [],
+  prices: {},
+  settings: DEFAULT_SETTINGS,
+};
 
 let snapshot: TradeState | null = null;
 const listeners = new Set<() => void>();
@@ -35,7 +52,12 @@ export function subscribe(listener: () => void): () => void {
 }
 
 export function getSnapshot(): TradeState {
-  snapshot ??= { trades: loadTrades(), prices: loadPrices() };
+  snapshot ??= {
+    trades: loadTrades(),
+    dividends: loadDividends(),
+    prices: loadPrices(),
+    settings: loadSettings(),
+  };
   return snapshot;
 }
 
@@ -51,7 +73,9 @@ export function update(recipe: (state: TradeState) => TradeState): void {
 
   snapshot = next;
   if (next.trades !== previous.trades) saveTrades(next.trades);
+  if (next.dividends !== previous.dividends) saveDividends(next.dividends);
   if (next.prices !== previous.prices) savePrices(next.prices);
+  if (next.settings !== previous.settings) saveSettings(next.settings);
   emit();
 }
 

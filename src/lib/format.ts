@@ -1,11 +1,11 @@
-const currency = new Intl.NumberFormat("en-US", {
+const currency = new Intl.NumberFormat("th-TH", {
   style: "currency",
-  currency: "USD",
+  currency: "THB",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 
-const shares = new Intl.NumberFormat("en-US", {
+const shares = new Intl.NumberFormat("th-TH", {
   maximumFractionDigits: 4,
 });
 

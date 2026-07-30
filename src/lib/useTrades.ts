@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { computePositions, computeTotals } from "./portfolio";
+import { DEFAULT_SETTINGS } from "./fees";
+import { buildPortfolio, computeTotals } from "./portfolio";
 import { getServerSnapshot, getSnapshot, subscribe, update } from "./store";
-import type { TradeDraft } from "./types";
+import type { DividendDraft, Settings, TradeDraft } from "./types";
 
 /** Single source of truth for the dashboard: trades in, positions out. */
 export function useTrades() {
-  const { trades, prices } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const { trades, dividends, prices, settings } = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   const addTrade = useCallback((draft: TradeDraft) => {
     update((state) => ({
@@ -23,6 +28,23 @@ export function useTrades() {
     update((state) => ({
       ...state,
       trades: state.trades.filter((trade) => trade.id !== id),
+    }));
+  }, []);
+
+  const addDividend = useCallback((draft: DividendDraft) => {
+    update((state) => ({
+      ...state,
+      dividends: [
+        ...state.dividends,
+        { ...draft, id: createId(), symbol: draft.symbol.trim().toUpperCase() },
+      ],
+    }));
+  }, []);
+
+  const deleteDividend = useCallback((id: string) => {
+    update((state) => ({
+      ...state,
+      dividends: state.dividends.filter((dividend) => dividend.id !== id),
     }));
   }, []);
 
@@ -42,14 +64,41 @@ export function useTrades() {
     });
   }, []);
 
-  const clearAll = useCallback(() => {
-    update(() => ({ trades: [], prices: {} }));
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
+    update((state) => ({ ...state, settings: { ...state.settings, ...patch } }));
   }, []);
 
-  const positions = useMemo(() => computePositions(trades, prices), [trades, prices]);
-  const totals = useMemo(() => computeTotals(positions), [positions]);
+  const resetSettings = useCallback(() => {
+    update((state) => ({ ...state, settings: DEFAULT_SETTINGS }));
+  }, []);
 
-  return { trades, positions, totals, prices, addTrade, deleteTrade, setPrice, clearAll };
+  /** Clears logged data but keeps configured rates and the carried-forward figure. */
+  const clearAll = useCallback(() => {
+    update((state) => ({ ...state, trades: [], dividends: [], prices: {} }));
+  }, []);
+
+  const portfolio = useMemo(
+    () => buildPortfolio(trades, prices, dividends),
+    [trades, prices, dividends],
+  );
+  const totals = useMemo(() => computeTotals(portfolio, settings), [portfolio, settings]);
+
+  return {
+    trades,
+    dividends,
+    positions: portfolio.positions,
+    totals,
+    prices,
+    settings,
+    addTrade,
+    deleteTrade,
+    addDividend,
+    deleteDividend,
+    setPrice,
+    updateSettings,
+    resetSettings,
+    clearAll,
+  };
 }
 
 function createId(): string {

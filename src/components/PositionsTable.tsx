@@ -26,7 +26,7 @@ export function PositionsTable({
         <Empty>Log a trade and your positions will show up here.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] text-sm">
+          <table className="w-full min-w-[58rem] text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 <Th align="left">Symbol</Th>
@@ -37,6 +37,7 @@ export function PositionsTable({
                 <Th>Market value</Th>
                 <Th>Unrealised</Th>
                 <Th>Realised</Th>
+                <Th>Dividends</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -104,6 +105,7 @@ function Row({
       <Td className={pnlColor(position.realizedPnl)}>
         {position.realizedPnl === 0 ? "—" : formatSignedMoney(position.realizedPnl)}
       </Td>
+      <Td>{position.dividends === 0 ? "—" : formatMoney(position.dividends)}</Td>
     </tr>
   );
 }
