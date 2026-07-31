@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMoney, formatPercent, formatShares, formatSignedMoney, pnlColor } from "@/lib/format";
+import { LiveQuoteError, fetchLivePrices } from "@/lib/liveQuotes";
 import { returnPercent, simulateExit } from "@/lib/portfolio";
 import type { Position, Settings } from "@/lib/types";
 import { byNumber, byText, matchesSymbol, useSort, useSymbols } from "@/lib/useSort";
@@ -79,14 +80,27 @@ export function PositionsTable({
   }, [rows, symbolFilter, status, sortRows]);
 
   const shown = rowLimit === undefined ? visible : visible.slice(0, rowLimit);
+  const openSymbols = useMemo(
+    () => positions.filter((position) => position.quantity !== 0).map((position) => position.symbol),
+    [positions],
+  );
 
   return (
     <section className={panelClass}>
       <header className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Positions</h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          FIFO cost basis · enter a last price to simulate closing the position
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          {settings.priceRelayUrl && (
+            <RefreshPricesButton
+              symbols={openSymbols}
+              relayUrl={settings.priceRelayUrl}
+              onPriceChange={onPriceChange}
+            />
+          )}
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            FIFO cost basis · enter a last price to simulate closing the position
+          </p>
+        </div>
       </header>
 
       {positions.length > 0 && (
@@ -218,9 +232,11 @@ function PositionRow({
 }
 
 /**
- * Keeps its own text state so partial input like "18." stays editable. This
- * input is the only writer of the price, so the prop never needs syncing back
- * in — a reset unmounts the row along with the position.
+ * Keeps its own text state so partial input like "18." stays editable.
+ * Typing is the common writer, but "Refresh prices" can also set `value`
+ * from outside — the ref tracks what *this* input last emitted, so an
+ * external change re-syncs the text while the input's own edits don't
+ * fight themselves (which would reset the cursor on every keystroke).
  */
 function PriceInput({
   symbol,
@@ -232,6 +248,14 @@ function PriceInput({
   onChange: (symbol: string, price: number | undefined) => void;
 }) {
   const [text, setText] = useState(value === undefined ? "" : String(value));
+  const lastEmitted = useRef(value);
+
+  useEffect(() => {
+    if (value !== lastEmitted.current) {
+      setText(value === undefined ? "" : String(value));
+      lastEmitted.current = value;
+    }
+  }, [value]);
 
   return (
     <input
@@ -246,9 +270,70 @@ function PriceInput({
         const next = event.target.value;
         setText(next);
         const parsed = Number(next);
-        onChange(symbol, next === "" || !Number.isFinite(parsed) ? undefined : parsed);
+        const parsedValue = next === "" || !Number.isFinite(parsed) ? undefined : parsed;
+        lastEmitted.current = parsedValue;
+        onChange(symbol, parsedValue);
       }}
       className="h-8 w-24 rounded-lg border border-neutral-300 bg-white px-2 text-right text-sm tabular-nums text-neutral-900 outline-none transition-colors focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50 dark:focus:border-neutral-400"
     />
+  );
+}
+
+/** Fetches every open symbol's price in one call and fills the Last price fields. */
+function RefreshPricesButton({
+  symbols,
+  relayUrl,
+  onPriceChange,
+}: {
+  symbols: string[];
+  relayUrl: string;
+  onPriceChange: (symbol: string, price: number | undefined) => void;
+}) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function refresh() {
+    if (symbols.length === 0) return;
+    setStatus("loading");
+    setMessage(null);
+    try {
+      const { prices, failed } = await fetchLivePrices(symbols, relayUrl);
+      for (const [symbol, price] of Object.entries(prices)) onPriceChange(symbol, price);
+
+      const updated = Object.keys(prices).length;
+      setStatus("done");
+      setMessage(
+        failed.length === 0
+          ? `Updated ${updated} price${updated === 1 ? "" : "s"}.`
+          : `Updated ${updated}; no quote for ${failed.join(", ")}.`,
+      );
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof LiveQuoteError ? error.message : "Couldn't fetch prices.");
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => void refresh()}
+        disabled={status === "loading" || symbols.length === 0}
+        className="h-8 shrink-0 rounded-lg border border-neutral-300 px-3 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      >
+        {status === "loading" ? "Refreshing…" : "Refresh prices"}
+      </button>
+      {message && (
+        <span
+          className={`text-xs ${
+            status === "error"
+              ? "text-rose-600 dark:text-rose-400"
+              : "text-neutral-500 dark:text-neutral-400"
+          }`}
+        >
+          {message}
+        </span>
+      )}
+    </div>
   );
 }

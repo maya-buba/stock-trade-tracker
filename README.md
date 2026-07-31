@@ -119,8 +119,10 @@ and sold at 22.30: commission 16.642 + 17.5055 = **34.15**, tax **2.39**, profit
 - **Carried-forward P&L** is a manual figure for profit or loss from before you
   started using this app. Negative for a past loss. It counts towards Total P&L
   but never towards the current year.
-- **Last price is manual.** Type a price into the Positions table to get market
-  value and unrealised P&L — there is no market data provider wired up yet.
+- **Last price** can be typed into the Positions table by hand, or filled in one
+  click by **Refresh prices** if a price relay is configured — see below. There's
+  only ever one "last price" per symbol; a refresh just fills the same field a
+  manual entry would.
 - **Selling more than you hold** is allowed but warned about: the excess shares
   realise against a zero cost basis and the position is flagged `short`.
 
@@ -133,6 +135,31 @@ entries) plus dividends into weeks or months, for a year you pick, and shows one
 diverging bar per period — up for a gain, down for a loss. Hover or focus a bar
 for the exact realised/dividend/total split; the year dropdown only lists years
 that actually have data (plus the current year).
+
+### Live prices
+
+Browsers can't call Yahoo Finance directly — its response has no CORS header
+allowing cross-origin JavaScript to read it, which is a restriction the browser
+enforces, not something either side can turn off. So live prices need a tiny
+server-side relay in between: `cloudflare-worker/price-relay.js` is a
+ready-to-deploy Cloudflare Worker that fetches Yahoo Finance for you (SET
+tickers via the `.BK` suffix, e.g. `PTT` → `PTT.BK`) and returns the result
+with the right CORS headers. Deploying it needs no CLI and no API token — paste
+it into a new Worker in the Cloudflare dashboard and deploy.
+
+Once deployed, paste the Worker's URL into **Live price relay URL** in
+**Rates & opening balance**. That unlocks a **Refresh prices** button on
+Positions, which fetches every open symbol's price in one call and fills the
+Last price field for each. Symbols the relay can't find are left alone — you'll
+see which ones in the status message, and can still enter those by hand. Unlike
+the folder-sync feature, this works in every browser, including Safari and
+iOS, since it's a plain `fetch()` call — no special browser API required. The
+relay URL is just a normal setting, so it syncs the same way everything else
+does (through a connected folder or a JSON backup).
+
+The relay only ever handles ticker symbols, never your trades or portfolio
+data — ticker symbols are public information, so this doesn't compromise the
+privacy of what you actually hold.
 
 ### Sorting, filtering, and row limits
 
@@ -156,9 +183,11 @@ never changes the numbers.
 | `src/lib/folderSync.ts` | Connects a folder (File System Access API) and mirrors state to a file in it |
 | `src/lib/handleDb.ts` | Tiny IndexedDB wrapper — the only way to persist a folder handle across reloads |
 | `src/lib/store.ts` | External store powering `useSyncExternalStore` |
+| `src/lib/liveQuotes.ts` | Calls the price relay and parses its response |
 | `src/lib/useTrades.ts` | The hook the UI reads from |
 | `src/lib/useSort.ts` | Generic column-sort state shared by both tables |
 | `src/components/` | Dashboard, forms, tables, and the performance chart |
+| `cloudflare-worker/price-relay.js` | Deploy-as-is Worker: Yahoo Finance → CORS-friendly JSON |
 
 ### Swapping in a real database
 
@@ -169,11 +198,6 @@ state.
 
 ## Not built yet
 
-- **Live quotes.** Needs a market-data API key, and this is a static site with
-  no server — any key embedded in the client bundle is visible to anyone who
-  opens dev tools, so this needs either a provider that issues a client-safe
-  "publishable" key, or a small serverless proxy to hold a real secret. Neither
-  is wired up. **Never commit an API secret to this repo** — it's public.
 - Multi-currency / FX — everything is baht
 - Splits and options
 - CSV import (export works, for both trades and dividends)

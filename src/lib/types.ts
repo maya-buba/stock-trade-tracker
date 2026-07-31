@@ -65,6 +65,12 @@ export interface Settings extends FeeSettings {
    * towards the current year.
    */
   carriedForwardPnl: number;
+  /**
+   * URL of a small server-side relay that fetches SET prices from Yahoo
+   * Finance (browsers can't call Yahoo directly — see cloudflare-worker/).
+   * Undefined/empty means "Refresh prices" is hidden and prices stay manual.
+   */
+  priceRelayUrl?: string;
 }
 
 /** Latest known price per symbol, entered by hand for now. */

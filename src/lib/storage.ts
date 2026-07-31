@@ -79,6 +79,9 @@ export function parseSettings(value: Partial<Settings> | undefined | null): Sett
     commissionRate: numberOr(stored.commissionRate, DEFAULT_SETTINGS.commissionRate),
     taxRate: numberOr(stored.taxRate, DEFAULT_SETTINGS.taxRate),
     carriedForwardPnl: numberOr(stored.carriedForwardPnl, DEFAULT_SETTINGS.carriedForwardPnl),
+    priceRelayUrl: typeof stored.priceRelayUrl === "string" && stored.priceRelayUrl.trim() !== ""
+      ? stored.priceRelayUrl.trim()
+      : undefined,
   };
 }
 

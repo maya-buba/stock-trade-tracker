@@ -87,6 +87,23 @@ export function SettingsPanel({
               {rateToPercent(DEFAULT_SETTINGS.taxRate).toFixed(0)}%
             </button>
           </div>
+
+          <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+            <UrlField
+              key={`relay-${revision}`}
+              id="price-relay-url"
+              label="Live price relay URL (optional)"
+              value={settings.priceRelayUrl ?? ""}
+              placeholder="https://your-worker.your-name.workers.dev"
+              onCommit={(url) => onChange({ priceRelayUrl: url || undefined })}
+            />
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              Fetches SET prices from Yahoo Finance via a small relay you host —
+              see <code>cloudflare-worker/price-relay.js</code>. Leave blank to keep entering
+              prices by hand; set this to show a <strong>Refresh prices</strong> button on
+              Positions.
+            </p>
+          </div>
         </div>
       )}
     </section>
@@ -136,6 +153,41 @@ function NumberField({
         className="mt-1 h-9 w-full rounded-lg border border-neutral-300 bg-white px-2.5 text-sm tabular-nums text-neutral-900 outline-none transition-colors focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50 dark:focus:border-neutral-400"
       />
       <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{suffix}</p>
+    </div>
+  );
+}
+
+/** Commits on blur, not per keystroke — a URL shouldn't try to save while half-typed. */
+function UrlField({
+  id,
+  label,
+  value,
+  placeholder,
+  onCommit,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}) {
+  const [text, setText] = useState(value);
+
+  return (
+    <div>
+      <label htmlFor={id} className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="url"
+        inputMode="url"
+        value={text}
+        placeholder={placeholder}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => onCommit(text.trim())}
+        className="mt-1 h-9 w-full rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50 dark:focus:border-neutral-400"
+      />
     </div>
   );
 }
