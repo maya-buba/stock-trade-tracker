@@ -28,8 +28,20 @@ server, no database, and no network code anywhere in `src/` — so:
 
 ### Moving data to another device
 
-There's no account and no sync — **Backup (JSON)** in the header is how you move
-data between devices:
+There's no account and no sync. Two ways to move data, depending on the browser:
+
+**Storage location (Chrome/Edge on desktop only).** The **Storage location**
+panel can connect a folder you pick — an iCloud Drive folder, for instance —
+using the browser's File System Access API. Once connected, every change writes
+straight to a JSON file in that folder, and iCloud (or Dropbox, etc.) syncs it
+on its own; the app never talks to iCloud directly, it only ever writes a local
+file. This API is Chromium-only — **Safari, and every browser on iOS, don't
+support it at all** — so on a phone this option won't appear, and you're back to
+manual backup/restore below. If the folder already has different data than the
+browser when you connect, you're asked which one should win before anything is
+overwritten.
+
+**Backup (JSON) — works everywhere.**
 
 1. On the device with your data, click **Backup (JSON)** — saves one file with
    everything (trades, dividends, manual entries, prices, settings).
@@ -40,8 +52,8 @@ data between devices:
 
 **Export trades CSV** / **Export dividends CSV** are for spreadsheets, not backups
 — a CSV round-trips numbers but not `id`s, so re-importing one would create
-duplicates rather than update in place. Use the JSON backup for moving between
-devices; CSV for opening in Excel/Sheets.
+duplicates rather than update in place. Use the JSON backup (or the connected
+folder) for moving between devices; CSV for opening in Excel/Sheets.
 
 ## Deploying
 
@@ -141,6 +153,8 @@ never changes the numbers.
 | `src/lib/timeSeries.ts` | Buckets realised P&L + dividends into weeks/months for the chart |
 | `src/lib/storage.ts` | The only place that touches `localStorage` |
 | `src/lib/backup.ts` | JSON export/import for moving data between devices |
+| `src/lib/folderSync.ts` | Connects a folder (File System Access API) and mirrors state to a file in it |
+| `src/lib/handleDb.ts` | Tiny IndexedDB wrapper — the only way to persist a folder handle across reloads |
 | `src/lib/store.ts` | External store powering `useSyncExternalStore` |
 | `src/lib/useTrades.ts` | The hook the UI reads from |
 | `src/lib/useSort.ts` | Generic column-sort state shared by both tables |
@@ -155,7 +169,11 @@ state.
 
 ## Not built yet
 
-- Live quotes (needs a market data API key — see below)
+- **Live quotes.** Needs a market-data API key, and this is a static site with
+  no server — any key embedded in the client bundle is visible to anyone who
+  opens dev tools, so this needs either a provider that issues a client-safe
+  "publishable" key, or a small serverless proxy to hold a real secret. Neither
+  is wired up. **Never commit an API secret to this repo** — it's public.
 - Multi-currency / FX — everything is baht
 - Splits and options
 - CSV import (export works, for both trades and dividends)

@@ -5,6 +5,7 @@ import { DividendPanel } from "./DividendPanel";
 import { PerformanceChart } from "./PerformanceChart";
 import { PositionsTable } from "./PositionsTable";
 import { SettingsPanel } from "./SettingsPanel";
+import { StorageSettings } from "./StorageSettings";
 import { SummaryCards } from "./SummaryCards";
 import { TradeForm } from "./TradeForm";
 import { TradesTable } from "./TradesTable";
@@ -59,6 +60,7 @@ export function Dashboard() {
       <div className="mt-8 flex flex-col gap-6">
         <PerformanceChart realizedEvents={realizedEvents} dividends={dividends} />
         <SummaryCards totals={totals} />
+        <StorageSettings />
         <SettingsPanel settings={settings} onChange={updateSettings} onReset={resetSettings} />
         <TradeForm positions={positions} settings={settings} onAdd={addTrade} />
         <PositionsTable positions={positions} settings={settings} onPriceChange={setPrice} />

@@ -41,6 +41,14 @@ const EMPTY_STATE: TradeState = {
 
 let snapshot: TradeState | null = null;
 const listeners = new Set<() => void>();
+/** Separate from `listeners`: folder-sync registers here to write-through every change. */
+const writeListeners = new Set<(state: TradeState) => void>();
+
+/** Called after every committed change, including ones from `update` below. */
+export function onStateWritten(listener: (state: TradeState) => void): () => void {
+  writeListeners.add(listener);
+  return () => writeListeners.delete(listener);
+}
 
 export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -82,6 +90,23 @@ export function update(recipe: (state: TradeState) => TradeState): void {
   if (next.adjustments !== previous.adjustments) saveAdjustments(next.adjustments);
   if (next.prices !== previous.prices) savePrices(next.prices);
   if (next.settings !== previous.settings) saveSettings(next.settings);
+  emit();
+  for (const listener of writeListeners) listener(next);
+}
+
+/**
+ * Replaces the whole state without going through localStorage diffing —
+ * used when folder-sync loads a file, since every field may differ at once.
+ * Does not notify `writeListeners`, so loading a file can't immediately
+ * write it straight back out.
+ */
+export function hydrate(next: TradeState): void {
+  snapshot = next;
+  saveTrades(next.trades);
+  saveDividends(next.dividends);
+  saveAdjustments(next.adjustments);
+  savePrices(next.prices);
+  saveSettings(next.settings);
   emit();
 }
 
