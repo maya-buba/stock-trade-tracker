@@ -51,7 +51,7 @@ export function savePrices(prices: PriceMap): void {
 
 export function loadDividends(): Dividend[] {
   return read<unknown[]>(DIVIDENDS_KEY, [])
-    .map(parseDatedAmount)
+    .map(parseDividend)
     .filter((dividend): dividend is Dividend => dividend !== null);
 }
 
@@ -146,6 +146,20 @@ export function parseDatedAmount<T extends Dividend | Adjustment>(value: unknown
     amount: row.amount,
     notes: typeof row.notes === "string" ? row.notes : undefined,
   } as T;
+}
+
+/** A dividend also carries the shares × per-share breakdown, when entered that way. */
+export function parseDividend(value: unknown): Dividend | null {
+  const base = parseDatedAmount<Dividend>(value);
+  if (!base) return null;
+  const row = value as Record<string, unknown>;
+
+  return {
+    ...base,
+    shares: typeof row.shares === "number" && Number.isFinite(row.shares) ? row.shares : undefined,
+    perShare:
+      typeof row.perShare === "number" && Number.isFinite(row.perShare) ? row.perShare : undefined,
+  };
 }
 
 function numberOr(value: unknown, fallback: number): number {

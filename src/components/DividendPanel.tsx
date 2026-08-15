@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatDate, formatMoney, pnlColor } from "@/lib/format";
-import type { Dividend, DividendDraft } from "@/lib/types";
-import { byText, matchesSymbol, useSort, useSymbols } from "@/lib/useSort";
+import { formatDate, formatMoney, formatShares, pnlColor } from "@/lib/format";
+import type { Dividend, DividendDraft, Position } from "@/lib/types";
+import { byNumber, byText, matchesSymbol, useSort, useSymbols } from "@/lib/useSort";
 import type { Column } from "@/lib/useSort";
 import { useToday } from "@/lib/useToday";
 import {
@@ -20,8 +20,17 @@ import {
 const COLUMNS: Column<Dividend, string>[] = [
   { key: "date", label: "Paid on", align: "left", defaultDirection: "desc", compare: (a, b) => byText(a.date, b.date) },
   { key: "symbol", label: "Symbol", align: "left", defaultDirection: "asc", compare: (a, b) => byText(a.symbol, b.symbol) },
+  { key: "shares", label: "Shares", defaultDirection: "desc", compare: (a, b) => byNumber(a.shares, b.shares) },
+  { key: "perShare", label: "Per share", defaultDirection: "desc", compare: (a, b) => byNumber(a.perShare, b.perShare) },
+  { key: "tax", label: "Withholding tax", defaultDirection: "desc", compare: (a, b) => byNumber(withholdingTaxOf(a), withholdingTaxOf(b)) },
   { key: "amount", label: "Amount", defaultDirection: "desc", compare: (a, b) => a.amount - b.amount },
 ];
+
+/** Tax implied by the shares × per-share breakdown, when the dividend was entered that way. */
+function withholdingTaxOf(dividend: Dividend): number | undefined {
+  if (dividend.shares === undefined || dividend.perShare === undefined) return undefined;
+  return dividend.shares * dividend.perShare - dividend.amount;
+}
 
 const EMPTY = { symbol: "", shares: "", perShare: "", notes: "" };
 
@@ -30,15 +39,18 @@ const WITHHOLDING_TAX_RATE = 0.1;
 export function DividendPanel({
   dividends,
   total,
+  positions,
   onAdd,
   onDelete,
 }: {
   dividends: Dividend[];
   total: number;
+  positions: Position[];
   onAdd: (draft: DividendDraft) => void;
   onDelete: (id: string) => void;
 }) {
   const [fields, setFields] = useState(EMPTY);
+  const [sharesTouched, setSharesTouched] = useState(false);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [symbolFilter, setSymbolFilter] = useState("");
@@ -74,8 +86,16 @@ export function DividendPanel({
     if (!hasValidInputs) return setError("Enter the shares held and the dividend per share.");
     if (!date) return setError("Pick a payment date.");
 
-    onAdd({ symbol, date, amount: netAmount, notes: fields.notes.trim() || undefined });
+    onAdd({
+      symbol,
+      date,
+      amount: netAmount,
+      shares,
+      perShare,
+      notes: fields.notes.trim() || undefined,
+    });
     setFields(EMPTY);
+    setSharesTouched(false);
     setError(null);
   }
 
@@ -100,7 +120,15 @@ export function DividendPanel({
               id="dividend-symbol"
               value={fields.symbol}
               onChange={(event) => {
-                setFields((previous) => ({ ...previous, symbol: event.target.value }));
+                const value = event.target.value;
+                const held = sharesTouched
+                  ? undefined
+                  : positions.find((position) => position.symbol === value.trim().toUpperCase());
+                setFields((previous) => ({
+                  ...previous,
+                  symbol: value,
+                  shares: held && held.quantity > 0 ? String(held.quantity) : previous.shares,
+                }));
                 setError(null);
               }}
               placeholder="IVL"
@@ -130,6 +158,7 @@ export function DividendPanel({
               value={fields.shares}
               onChange={(event) => {
                 setFields((previous) => ({ ...previous, shares: event.target.value }));
+                setSharesTouched(true);
                 setError(null);
               }}
               placeholder="100"
@@ -229,7 +258,7 @@ export function DividendPanel({
         <Empty>No dividends match this filter.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[36rem] text-sm">
+          <table className="w-full min-w-[54rem] text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 {COLUMNS.map((column) => (
@@ -240,7 +269,9 @@ export function DividendPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {visible.map((dividend) => (
+              {visible.map((dividend) => {
+                const tax = withholdingTaxOf(dividend);
+                return (
                 <tr key={dividend.id} className="text-neutral-700 dark:text-neutral-300">
                   <Td align="left">{formatDate(dividend.date)}</Td>
                   <Td align="left">
@@ -248,6 +279,9 @@ export function DividendPanel({
                       {dividend.symbol}
                     </span>
                   </Td>
+                  <Td>{dividend.shares === undefined ? "—" : formatShares(dividend.shares)}</Td>
+                  <Td>{dividend.perShare === undefined ? "—" : formatMoney(dividend.perShare)}</Td>
+                  <Td>{tax === undefined ? "—" : formatMoney(tax)}</Td>
                   <Td className={pnlColor(dividend.amount)}>{formatMoney(dividend.amount)}</Td>
                   <Td align="left" className="max-w-xs truncate text-neutral-500 dark:text-neutral-400">
                     {dividend.notes ?? "—"}
@@ -263,7 +297,8 @@ export function DividendPanel({
                     </button>
                   </Td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

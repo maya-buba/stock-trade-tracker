@@ -14,7 +14,15 @@ const LEDGER_HEADERS = [
   "notes",
 ] as const;
 
-const DIVIDEND_HEADERS = ["date", "symbol", "amount", "notes"] as const;
+const DIVIDEND_HEADERS = [
+  "date",
+  "symbol",
+  "shares",
+  "perShare",
+  "withholdingTax",
+  "amount",
+  "notes",
+] as const;
 
 /**
  * Trades and manual gain/loss entries share one CSV — they're the same
@@ -65,11 +73,21 @@ export function ledgerToCsv(
 export function dividendsToCsv(dividends: Dividend[]): string {
   const rows = [...dividends]
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
-    .map((dividend) =>
-      [dividend.date, dividend.symbol, round2(dividend.amount), dividend.notes ?? ""]
+    .map((dividend) => {
+      const hasBreakdown = dividend.shares !== undefined && dividend.perShare !== undefined;
+      const gross = hasBreakdown ? dividend.shares! * dividend.perShare! : undefined;
+      return [
+        dividend.date,
+        dividend.symbol,
+        dividend.shares ?? "",
+        dividend.perShare ?? "",
+        gross === undefined ? "" : round2(gross - dividend.amount),
+        round2(dividend.amount),
+        dividend.notes ?? "",
+      ]
         .map(escapeCell)
-        .join(","),
-    );
+        .join(",");
+    });
   return [DIVIDEND_HEADERS.join(","), ...rows].join("\n");
 }
 

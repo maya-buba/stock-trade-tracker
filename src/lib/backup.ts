@@ -1,4 +1,4 @@
-import { migrateTrade, parseDatedAmount, parseSettings } from "./storage";
+import { migrateTrade, parseDatedAmount, parseDividend, parseSettings } from "./storage";
 import type { TradeState } from "./store";
 import type { Adjustment, Dividend, PriceMap, Trade } from "./types";
 
@@ -68,7 +68,7 @@ export function parseBackup(raw: string): TradeState {
     .filter((trade): trade is Trade => trade !== null);
 
   const dividends = toArray(row.dividends)
-    .map((entry) => parseDatedAmount<Dividend>(entry))
+    .map(parseDividend)
     .filter((entry): entry is Dividend => entry !== null);
 
   const adjustments = toArray(row.adjustments)

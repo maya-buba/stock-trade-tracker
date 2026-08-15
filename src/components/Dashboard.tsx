@@ -75,6 +75,7 @@ export function Dashboard() {
         <DividendPanel
           dividends={dividends}
           total={totals.dividends}
+          positions={positions}
           onAdd={addDividend}
           onDelete={deleteDividend}
         />

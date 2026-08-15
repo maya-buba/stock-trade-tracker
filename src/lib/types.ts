@@ -26,8 +26,12 @@ export interface Dividend {
   symbol: string;
   /** Payment date as `YYYY-MM-DD`. */
   date: string;
-  /** Cash actually received. Enter it net of any withholding tax. */
+  /** Cash actually received, net of withholding tax. */
   amount: number;
+  /** Shares held at payment, if entered via the shares × per-share form. */
+  shares?: number;
+  /** Dividend paid per share, before withholding tax. */
+  perShare?: number;
   notes?: string;
 }
 
