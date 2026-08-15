@@ -23,7 +23,9 @@ const COLUMNS: Column<Dividend, string>[] = [
   { key: "amount", label: "Amount", defaultDirection: "desc", compare: (a, b) => a.amount - b.amount },
 ];
 
-const EMPTY = { symbol: "", amount: "", notes: "" };
+const EMPTY = { symbol: "", shares: "", perShare: "", notes: "" };
+
+const WITHHOLDING_TAX_RATE = 0.1;
 
 export function DividendPanel({
   dividends,
@@ -46,6 +48,17 @@ export function DividendPanel({
   const { sort, toggle, sortRows } = useSort(COLUMNS, "date");
   const symbols = useSymbols(dividends);
 
+  const shares = Number(fields.shares);
+  const perShare = Number(fields.perShare);
+  const hasValidInputs =
+    fields.shares.trim() !== "" &&
+    fields.perShare.trim() !== "" &&
+    Number.isFinite(shares) &&
+    Number.isFinite(perShare);
+  const gross = hasValidInputs ? shares * perShare : 0;
+  const withholdingTax = hasValidInputs ? gross * WITHHOLDING_TAX_RATE : 0;
+  const netAmount = hasValidInputs ? gross - withholdingTax : 0;
+
   const visible = useMemo(
     () => sortRows(dividends.filter((dividend) => matchesSymbol(dividend.symbol, symbolFilter))),
     [dividends, symbolFilter, sortRows],
@@ -56,15 +69,12 @@ export function DividendPanel({
     event.preventDefault();
 
     const symbol = fields.symbol.trim().toUpperCase();
-    const amount = Number(fields.amount);
 
     if (!symbol) return setError("Enter a ticker symbol.");
-    if (fields.amount.trim() === "" || !Number.isFinite(amount)) {
-      return setError("Enter the amount received.");
-    }
+    if (!hasValidInputs) return setError("Enter the shares held and the dividend per share.");
     if (!date) return setError("Pick a payment date.");
 
-    onAdd({ symbol, date, amount, notes: fields.notes.trim() || undefined });
+    onAdd({ symbol, date, amount: netAmount, notes: fields.notes.trim() || undefined });
     setFields(EMPTY);
     setError(null);
   }
@@ -111,23 +121,60 @@ export function DividendPanel({
           </div>
 
           <div className="lg:col-span-2">
-            <Label htmlFor="dividend-amount">Amount received</Label>
+            <Label htmlFor="dividend-shares">Shares held</Label>
             <input
-              id="dividend-amount"
+              id="dividend-shares"
               type="number"
               inputMode="decimal"
               step="any"
-              value={fields.amount}
+              value={fields.shares}
               onChange={(event) => {
-                setFields((previous) => ({ ...previous, amount: event.target.value }));
+                setFields((previous) => ({ ...previous, shares: event.target.value }));
                 setError(null);
               }}
-              placeholder="450.00"
+              placeholder="100"
               className={inputClass}
             />
           </div>
 
-          <div className="col-span-2 lg:col-span-4">
+          <div className="lg:col-span-2">
+            <Label htmlFor="dividend-per-share">Dividend / share</Label>
+            <input
+              id="dividend-per-share"
+              type="number"
+              inputMode="decimal"
+              step="any"
+              value={fields.perShare}
+              onChange={(event) => {
+                setFields((previous) => ({ ...previous, perShare: event.target.value }));
+                setError(null);
+              }}
+              placeholder="0.50"
+              className={inputClass}
+            />
+          </div>
+
+          <div className="lg:col-span-2">
+            <Label htmlFor="dividend-tax">Withholding tax (10%)</Label>
+            <output
+              id="dividend-tax"
+              className={`${inputClass} flex items-center bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400`}
+            >
+              {formatMoney(withholdingTax)}
+            </output>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Label htmlFor="dividend-net">Total received</Label>
+            <output
+              id="dividend-net"
+              className={`${inputClass} flex items-center bg-neutral-50 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-neutral-50`}
+            >
+              {formatMoney(netAmount)}
+            </output>
+          </div>
+
+          <div className="col-span-2 lg:col-span-10">
             <Label htmlFor="dividend-notes">Notes (optional)</Label>
             <input
               id="dividend-notes"
