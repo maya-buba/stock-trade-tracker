@@ -24,10 +24,12 @@ export function Dashboard() {
     settings,
     addTrade,
     deleteTrade,
+    updateTrade,
     addDividend,
     deleteDividend,
     addAdjustment,
     deleteAdjustment,
+    updateAdjustment,
     setPrice,
     updateSettings,
     resetSettings,
@@ -69,8 +71,10 @@ export function Dashboard() {
           adjustments={adjustments}
           realizedByTradeId={realizedByTradeId}
           onDelete={deleteTrade}
+          onUpdateTrade={updateTrade}
           onAddAdjustment={addAdjustment}
           onDeleteAdjustment={deleteAdjustment}
+          onUpdateAdjustment={updateAdjustment}
         />
         <DividendPanel
           dividends={dividends}

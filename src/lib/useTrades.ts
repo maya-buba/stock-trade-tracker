@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS } from "./fees";
 import { buildPortfolio, computeTotals } from "./portfolio";
 import { getServerSnapshot, getSnapshot, subscribe, update } from "./store";
 import type { TradeState } from "./store";
-import type { AdjustmentDraft, DividendDraft, Settings, TradeDraft } from "./types";
+import type { AdjustmentDraft, DividendDraft, Settings, Trade, TradeDraft } from "./types";
 
 /** Single source of truth for the dashboard: trades in, positions out. */
 export function useTrades() {
@@ -29,6 +29,21 @@ export function useTrades() {
     update((state) => ({
       ...state,
       trades: state.trades.filter((trade) => trade.id !== id),
+    }));
+  }, []);
+
+  const updateTrade = useCallback((id: string, patch: Partial<TradeDraft>) => {
+    update((state) => ({
+      ...state,
+      trades: state.trades.map((trade) =>
+        trade.id === id
+          ? {
+              ...trade,
+              ...patch,
+              symbol: (patch.symbol ?? trade.symbol).trim().toUpperCase(),
+            }
+          : trade,
+      ) as Trade[],
     }));
   }, []);
 
@@ -63,6 +78,21 @@ export function useTrades() {
     update((state) => ({
       ...state,
       adjustments: state.adjustments.filter((adjustment) => adjustment.id !== id),
+    }));
+  }, []);
+
+  const updateAdjustment = useCallback((id: string, patch: Partial<AdjustmentDraft>) => {
+    update((state) => ({
+      ...state,
+      adjustments: state.adjustments.map((adjustment) =>
+        adjustment.id === id
+          ? {
+              ...adjustment,
+              ...patch,
+              symbol: (patch.symbol ?? adjustment.symbol).trim().toUpperCase(),
+            }
+          : adjustment,
+      ),
     }));
   }, []);
 
@@ -118,10 +148,12 @@ export function useTrades() {
     settings,
     addTrade,
     deleteTrade,
+    updateTrade,
     addDividend,
     deleteDividend,
     addAdjustment,
     deleteAdjustment,
+    updateAdjustment,
     setPrice,
     updateSettings,
     resetSettings,

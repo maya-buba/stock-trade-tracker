@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { Column, SortState } from "@/lib/useSort";
 
 /** Shared table primitives — numbers right-aligned, labels left. */
@@ -70,6 +71,106 @@ export function Td({
       className={`px-4 py-3 tabular-nums ${align === "left" ? "text-left" : "text-right"} ${className}`}
     >
       {children}
+    </td>
+  );
+}
+
+/**
+ * A table cell that turns into an input on click and commits on blur/Enter.
+ * `value` is the raw editable string (e.g. "12.5", "2026-01-05"); `display`
+ * is what renders when not editing. `parse` validates the typed text and
+ * converts it back to a raw value — return `null` to reject and revert.
+ */
+export function EditableTd({
+  value,
+  display,
+  onSave,
+  parse,
+  type = "text",
+  align = "right",
+  className = "",
+  ariaLabel,
+  allowEmpty = false,
+}: {
+  value: string;
+  display: React.ReactNode;
+  onSave: (value: string) => void;
+  parse?: (raw: string) => string | null;
+  type?: "text" | "number" | "date";
+  align?: "left" | "right";
+  className?: string;
+  ariaLabel?: string;
+  /** Lets the field be saved as an empty string, e.g. to clear notes. */
+  allowEmpty?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  function commit() {
+    const raw = draft.trim();
+    if (raw === "" && !allowEmpty) {
+      setDraft(value);
+      setEditing(false);
+      return;
+    }
+    const parsed = parse ? parse(raw) : raw;
+    if (parsed !== null && parsed !== value) onSave(parsed);
+    setDraft(value);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <td className={`px-2 py-1.5 tabular-nums ${align === "left" ? "text-left" : "text-right"} ${className}`}>
+        <input
+          autoFocus
+          type={type}
+          inputMode={type === "number" ? "decimal" : undefined}
+          step={type === "number" ? "any" : undefined}
+          value={draft}
+          aria-label={ariaLabel}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commit();
+            }
+            if (event.key === "Escape") {
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
+          className={`h-7 w-full min-w-0 rounded border border-neutral-900 bg-white px-1.5 text-sm tabular-nums text-neutral-900 outline-none dark:border-neutral-400 dark:bg-neutral-950 dark:text-neutral-50 ${
+            align === "left" ? "text-left" : "text-right"
+          }`}
+        />
+      </td>
+    );
+  }
+
+  return (
+    <td
+      role="button"
+      tabIndex={0}
+      title="Click to edit"
+      onClick={() => setEditing(true)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setEditing(true);
+        }
+      }}
+      className={`cursor-text rounded px-4 py-3 tabular-nums transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+        align === "left" ? "text-left" : "text-right"
+      } ${className}`}
+    >
+      {display}
     </td>
   );
 }

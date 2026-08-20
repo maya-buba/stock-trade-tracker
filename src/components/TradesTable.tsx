@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { cashFlow } from "@/lib/fees";
 import { formatDate, formatMoney, formatShares, formatSignedMoney, pnlColor } from "@/lib/format";
-import type { Adjustment, AdjustmentDraft, Trade } from "@/lib/types";
+import type { Adjustment, AdjustmentDraft, Trade, TradeDraft } from "@/lib/types";
 import { byNumber, byText, matchesSymbol, useSort, useSymbols } from "@/lib/useSort";
 import type { Column } from "@/lib/useSort";
 import { useToday } from "@/lib/useToday";
 import {
+  EditableTd,
   Empty,
   FilterBar,
   FilterCount,
@@ -60,15 +61,19 @@ export function TradesTable({
   adjustments,
   realizedByTradeId,
   onDelete,
+  onUpdateTrade,
   onAddAdjustment,
   onDeleteAdjustment,
+  onUpdateAdjustment,
 }: {
   trades: Trade[];
   adjustments: Adjustment[];
   realizedByTradeId: Record<string, number>;
   onDelete: (id: string) => void;
+  onUpdateTrade: (id: string, patch: Partial<TradeDraft>) => void;
   onAddAdjustment: (draft: AdjustmentDraft) => void;
   onDeleteAdjustment: (id: string) => void;
+  onUpdateAdjustment: (id: string, patch: Partial<AdjustmentDraft>) => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [symbolFilter, setSymbolFilter] = useState("");
@@ -205,6 +210,8 @@ export function TradesTable({
                   onDelete={() =>
                     row.source === "trade" ? onDelete(row.id) : onDeleteAdjustment(row.id)
                   }
+                  onUpdateTrade={(patch) => onUpdateTrade(row.id, patch)}
+                  onUpdateAdjustment={(patch) => onUpdateAdjustment(row.id, patch)}
                 />
               ))}
             </tbody>
@@ -215,29 +222,155 @@ export function TradesTable({
   );
 }
 
-function LedgerTableRow({ row, onDelete }: { row: LedgerRow; onDelete: () => void }) {
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+function parseDate(raw: string): string | null {
+  return DATE_PATTERN.test(raw) ? raw : null;
+}
+function parseSymbol(raw: string): string | null {
+  const symbol = raw.trim().toUpperCase();
+  return symbol ? symbol : null;
+}
+function parsePositiveNumber(raw: string): string | null {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? raw : null;
+}
+function parseNonNegativeNumber(raw: string): string | null {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? raw : null;
+}
+function parseNonZeroNumber(raw: string): string | null {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed !== 0 ? raw : null;
+}
+
+function LedgerTableRow({
+  row,
+  onDelete,
+  onUpdateTrade,
+  onUpdateAdjustment,
+}: {
+  row: LedgerRow;
+  onDelete: () => void;
+  onUpdateTrade: (patch: Partial<TradeDraft>) => void;
+  onUpdateAdjustment: (patch: Partial<AdjustmentDraft>) => void;
+}) {
+  const isTrade = row.source === "trade";
+
   return (
     <tr className="text-neutral-700 dark:text-neutral-300">
-      <Td align="left">{formatDate(row.date)}</Td>
+      <EditableTd
+        align="left"
+        type="date"
+        value={row.date}
+        parse={parseDate}
+        ariaLabel={`Date for ${row.symbol}`}
+        display={formatDate(row.date)}
+        onSave={(value) =>
+          isTrade ? onUpdateTrade({ date: value }) : onUpdateAdjustment({ date: value })
+        }
+      />
+      <EditableTd
+        align="left"
+        value={row.symbol}
+        parse={parseSymbol}
+        ariaLabel="Symbol"
+        display={<span className="font-medium text-neutral-900 dark:text-neutral-50">{row.symbol}</span>}
+        onSave={(value) =>
+          isTrade ? onUpdateTrade({ symbol: value }) : onUpdateAdjustment({ symbol: value })
+        }
+      />
       <Td align="left">
-        <span className="font-medium text-neutral-900 dark:text-neutral-50">{row.symbol}</span>
+        {isTrade ? (
+          <button
+            type="button"
+            onClick={() => onUpdateTrade({ side: row.kind === "buy" ? "sell" : "buy" })}
+            title="Click to flip buy/sell"
+          >
+            <Badge tone={row.kind}>{row.kind}</Badge>
+          </button>
+        ) : (
+          <Badge tone={row.kind}>{row.kind}</Badge>
+        )}
       </Td>
-      <Td align="left">
-        <Badge tone={row.kind}>{row.kind}</Badge>
-      </Td>
-      <Td>{row.shares === undefined ? "—" : formatShares(row.shares)}</Td>
-      <Td>{row.price === undefined ? "—" : formatMoney(row.price)}</Td>
-      <Td>{row.commission === undefined ? "—" : formatMoney(row.commission)}</Td>
-      <Td>{row.tax === undefined ? "—" : formatMoney(row.tax)}</Td>
+      {isTrade ? (
+        <EditableTd
+          type="number"
+          value={String(row.shares ?? "")}
+          parse={parsePositiveNumber}
+          ariaLabel={`Shares for ${row.symbol}`}
+          display={row.shares === undefined ? "—" : formatShares(row.shares)}
+          onSave={(value) => onUpdateTrade({ quantity: Number(value) })}
+        />
+      ) : (
+        <Td>—</Td>
+      )}
+      {isTrade ? (
+        <EditableTd
+          type="number"
+          value={String(row.price ?? "")}
+          parse={parseNonNegativeNumber}
+          ariaLabel={`Price for ${row.symbol}`}
+          display={row.price === undefined ? "—" : formatMoney(row.price)}
+          onSave={(value) => onUpdateTrade({ price: Number(value) })}
+        />
+      ) : (
+        <Td>—</Td>
+      )}
+      {isTrade ? (
+        <EditableTd
+          type="number"
+          value={String(row.commission ?? "")}
+          parse={parseNonNegativeNumber}
+          ariaLabel={`Commission for ${row.symbol}`}
+          display={row.commission === undefined ? "—" : formatMoney(row.commission)}
+          onSave={(value) => onUpdateTrade({ commission: Number(value) })}
+        />
+      ) : (
+        <Td>—</Td>
+      )}
+      {isTrade ? (
+        <EditableTd
+          type="number"
+          value={String(row.tax ?? "")}
+          parse={parseNonNegativeNumber}
+          ariaLabel={`Tax for ${row.symbol}`}
+          display={row.tax === undefined ? "—" : formatMoney(row.tax)}
+          onSave={(value) => onUpdateTrade({ tax: Number(value) })}
+        />
+      ) : (
+        <Td>—</Td>
+      )}
       <Td className={row.total === undefined ? "" : "font-medium text-neutral-900 dark:text-neutral-50"}>
         {row.total === undefined ? "—" : formatMoney(row.total)}
       </Td>
-      <Td className={row.realized === undefined ? "" : pnlColor(row.realized)}>
-        {row.realized === undefined ? "—" : formatSignedMoney(row.realized)}
-      </Td>
-      <Td align="left" className="max-w-xs truncate text-neutral-500 dark:text-neutral-400">
-        {row.notes ?? "—"}
-      </Td>
+      {isTrade ? (
+        <Td className={row.realized === undefined ? "" : pnlColor(row.realized)}>
+          {row.realized === undefined ? "—" : formatSignedMoney(row.realized)}
+        </Td>
+      ) : (
+        <EditableTd
+          type="number"
+          value={String(row.realized ?? "")}
+          parse={parseNonZeroNumber}
+          ariaLabel={`Amount for ${row.symbol}`}
+          className={row.realized === undefined ? "" : pnlColor(row.realized)}
+          display={row.realized === undefined ? "—" : formatSignedMoney(row.realized)}
+          onSave={(value) => onUpdateAdjustment({ amount: Number(value) })}
+        />
+      )}
+      <EditableTd
+        align="left"
+        allowEmpty
+        value={row.notes ?? ""}
+        ariaLabel={`Notes for ${row.symbol}`}
+        className="max-w-xs truncate text-neutral-500 dark:text-neutral-400"
+        display={row.notes ?? "—"}
+        onSave={(value) =>
+          isTrade
+            ? onUpdateTrade({ notes: value || undefined })
+            : onUpdateAdjustment({ notes: value || undefined })
+        }
+      />
       <Td>
         <button
           type="button"
